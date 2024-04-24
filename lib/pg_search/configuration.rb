@@ -36,10 +36,12 @@ module PgSearch
     end
 
     def associations
-      return [] unless options[:associated_against]
+      return [] unless options[:associations]
 
-      options[:associated_against].map do |association, column_names|
-        Association.new(model, association, column_names)
+      options[:associations].map do |association_hash|
+        association_hash.map do |association, options|
+          Association.new(model, association, options)
+        end
       end.flatten
     end
 
@@ -84,7 +86,7 @@ module PgSearch
     end
 
     VALID_KEYS = %w[
-      against ranked_by ignoring using query associated_against order_within_rank
+      against ranked_by ignoring using query associations order_within_rank
     ].map(&:to_sym)
 
     VALID_VALUES = {
@@ -92,10 +94,10 @@ module PgSearch
     }.freeze
 
     def assert_valid_options(options)
-      unless options[:against] || options[:associated_against] || using_tsvector_column?(options[:using])
+      unless options[:against] || options[:associations] || using_tsvector_column?(options[:using])
         raise(
           ArgumentError,
-          "the search scope #{@name} must have :against, :associated_against, or :tsvector_column in its options"
+          "the search scope #{@name} must have :against, :associations, or :tsvector_column in its options"
         )
       end
 

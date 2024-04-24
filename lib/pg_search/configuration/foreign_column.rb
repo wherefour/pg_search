@@ -1,11 +1,9 @@
-# frozen_string_literal: true
-
 require "digest"
 
 module PgSearch
   class Configuration
     class ForeignColumn < Column
-      attr_reader :weight
+      attr_reader :weight, :association
 
       def initialize(column_name, weight, model, association)
         super(column_name, weight, model)

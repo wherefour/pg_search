@@ -5,12 +5,13 @@ require "digest"
 module PgSearch
   class Configuration
     class Association
-      attr_reader :columns
+      attr_reader :columns, :options, :model
 
-      def initialize(model, name, column_names)
+      def initialize(model, name, options)
         @model = model
         @name = name
-        @columns = Array(column_names).map do |column_name, weight|
+        @options = options
+        @columns = Array(options[:against]).map do |column_name, weight|
           ForeignColumn.new(column_name, weight, @model, self)
         end
       end
@@ -27,6 +28,10 @@ module PgSearch
         Configuration.alias(table_name, @name, "subselect")
       end
 
+      def tsvector_for_column(column_name)
+        options.dig(:using, :tsearch, :tsvector_column).find { |column| column == "#{column_name}_tsvector" }
+      end
+
       private
 
       def selects
@@ -39,13 +44,23 @@ module PgSearch
 
       def selects_for_singular_association
         columns.map do |column|
-          "#{column.full_name}::text AS #{column.alias}"
+          tsvector_column = tsvector_for_column(column.name)
+          if tsvector_column
+            "#{model.connection.quote_table_name(table_name)}.#{tsvector_column}::tsvector AS #{Configuration.alias(subselect_alias, tsvector_column)}"
+          else
+            "#{column.full_name}::text AS #{column.alias}"
+          end
         end.join(", ")
       end
 
       def selects_for_multiple_association
         columns.map do |column|
-          "string_agg(#{column.full_name}::text, ' ') AS #{column.alias}"
+          tsvector_column = tsvector_for_column(column.name)
+          if tsvector_column
+            "string_agg(#{model.connection.quote_table_name(table_name)}.#{tsvector_column}::tsvector, ' ') AS #{Configuration.alias(subselect_alias, tsvector_column)}"
+          else
+            "string_agg(#{column.full_name}::text, ' ') AS #{column.alias}"
+          end
         end.join(", ")
       end
 

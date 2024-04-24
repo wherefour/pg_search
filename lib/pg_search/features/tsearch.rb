@@ -140,7 +140,20 @@ module PgSearch
 
       def tsdocument
         tsdocument_terms = (columns_to_use || []).map do |search_column|
-          column_to_tsvector(search_column)
+          if search_column.is_a?(PgSearch::Configuration::ForeignColumn)
+            if search_column.association.options.dig(:using, :tsearch, :tsvector_column).present?
+              tsvector_column = search_column.association.tsvector_for_column(search_column.name)
+              if tsvector_column
+                "COALESCE(#{search_column.association.subselect_alias}.#{Configuration.alias(search_column.association.subselect_alias, tsvector_column)}, '')"
+              else
+                column_to_tsvector(search_column)
+              end
+            else
+              column_to_tsvector(search_column)
+            end
+          else
+            column_to_tsvector(search_column)
+          end
         end
 
         if options[:tsvector_column]
